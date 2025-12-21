@@ -1,6 +1,10 @@
+// pages/index/index.js
 const db = wx.cloud.database();
 
 Page({
+  /**
+   * Page initial data
+   */
   data: {
     userInfo: null,
     steps: '',
@@ -8,14 +12,12 @@ Page({
     tempImgPath: '',
     loading: false,
     tempAvatar: '',
-    inputNickname: '',
-    someList: [],
-    // posts: [],
-    // rankList: [],
-    myHistory: []
+    inputNickname: ''
   },
 
-  // 修改 onLoad：确保老用户也能补全 openid 缓存
+  /**
+   * Lifecycle function--Called when page load
+   */
   async onLoad() {
     const cachedUser = wx.getStorageSync('userInfo');
     const cachedOpenid = wx.getStorageSync('openid');
@@ -23,20 +25,21 @@ Page({
     if (cachedUser) {
       this.setData({ userInfo: cachedUser });
       
-      // 关键修复：如果缓存里有用户但没有 openid (刚更新代码的情况)
+      // Silently recover openid if missing
       if (!cachedOpenid) {
-        console.log("检测到缺少 openid，正在静默补全...");
         try {
           const loginRes = await wx.cloud.callFunction({ name: 'login' });
           wx.setStorageSync('openid', loginRes.result.openid);
-          console.log("openid 补全成功");
         } catch (err) {
-          console.error("静默获取 openid 失败", err);
+          console.error("Failed to recover openid silently:", err);
         }
       }
     }
   },
 
+  /**
+   * Avatar and Nickname Setup
+   */
   onChooseAvatar(e) {
     this.setData({ tempAvatar: e.detail.avatarUrl });
   },
@@ -47,25 +50,27 @@ Page({
 
   async confirmLogin() {
     const { tempAvatar, inputNickname } = this.data;
-    if (!tempAvatar) return wx.showToast({ title: '请选择头像', icon: 'none' });
-    if (!inputNickname) return wx.showToast({ title: '请输入昵称', icon: 'none' });
+    if (!tempAvatar) return wx.showToast({ title: 'Please select avatar', icon: 'none' });
+    if (!inputNickname) return wx.showToast({ title: 'Please enter nickname', icon: 'none' });
 
-    wx.showLoading({ title: '资料同步中...' });
+    wx.showLoading({ title: 'Syncing profile...', mask: true });
 
     try {
-      // 1. 上传头像
-      const cloudPath = `avatars/${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
+      // 1. Upload Avatar to Cloud Storage
+      const suffix = /\.[^\.]+$/.exec(tempAvatar)[0]; 
+      const cloudPath = `avatars/${Date.now()}-${Math.floor(Math.random()*1000)}${suffix}`;
+      
       const uploadRes = await wx.cloud.uploadFile({
-        cloudPath: cloudPath,
+        cloudPath,
         filePath: tempAvatar
       });
 
-      // 2. 获取并存储 OpenID
+      // 2. Fetch OpenID
       const loginRes = await wx.cloud.callFunction({ name: 'login' });
       const openid = loginRes.result.openid;
       wx.setStorageSync('openid', openid); 
 
-      // 3. 存储用户信息
+      // 3. Save User Info locally
       const userInfo = {
         avatarUrl: uploadRes.fileID,
         nickName: inputNickname
@@ -73,53 +78,80 @@ Page({
       this.setData({ userInfo });
       wx.setStorageSync('userInfo', userInfo);
 
-      wx.showToast({ title: '设置成功', icon: 'success' });
+      wx.showToast({ title: 'Login Success', icon: 'success' });
     } catch (err) {
-      console.error("设置个人信息失败：", err);
-      wx.showToast({ title: '设置失败', icon: 'none' });
+      console.error("Login failed:", err);
+      wx.showToast({ title: 'Setup Failed', icon: 'none' });
     } finally {
       wx.hideLoading();
     }
   },
 
+  /**
+   * Main Check-in Logic
+   */
   async submitData() {
-    const { steps, mood, tempImgPath, userInfo } = this.data;
-    if (!userInfo) return wx.showToast({ title: '请先完成登录设置', icon: 'none' });
-    if (!steps || !mood) return wx.showToast({ title: '请填写步数和感想', icon: 'none' });
+    const { steps, mood, tempImgPath, userInfo, loading } = this.data;
+    
+    // Safety checks
+    if (loading) return;
+    if (!userInfo) return wx.showToast({ title: 'Please login first', icon: 'none' });
+    
+    const cleanMood = mood.trim();
+    const stepNum = parseInt(steps);
+
+    if (!steps || !cleanMood) return wx.showToast({ title: 'Please fill all fields', icon: 'none' });
+    if (isNaN(stepNum) || stepNum <= 0) return wx.showToast({ title: 'Invalid steps', icon: 'none' });
 
     this.setData({ loading: true });
 
     try {
+      // 1. Image Upload (if selected)
       let finalFileID = '';
       if (tempImgPath) {
-        const cloudPath = `checkin_pics/${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
+        const suffix = /\.[^\.]+$/.exec(tempImgPath)[0];
+        const cloudPath = `checkin_pics/${Date.now()}-${Math.floor(Math.random()*1000)}${suffix}`;
         const uploadRes = await wx.cloud.uploadFile({
-          cloudPath: cloudPath,
+          cloudPath,
           filePath: tempImgPath
         });
         finalFileID = uploadRes.fileID;
       }
 
-      await db.collection('check_ins').add({
+      // 2. Add post via Cloud Function
+      await wx.cloud.callFunction({
+        name: 'addPost',
         data: {
-          steps: Number(steps),
-          mood: mood,
+          steps: stepNum,
+          mood: cleanMood,
           imgFileID: finalFileID,
-          userInfo: userInfo,
-          createTime: db.serverDate()
+          userInfo: userInfo
         }
       });
 
-      wx.showToast({ title: '打卡成功', icon: 'success' });
+      // 3. Success Feedback
+      wx.vibrateShort(); // Haptic feedback
+      wx.showToast({ title: 'Check-in Success', icon: 'success' });
+      
+      // Clear inputs
       this.setData({ steps: '', mood: '', tempImgPath: '' });
-      setTimeout(() => { wx.switchTab({ url: '/pages/wall/wall' }); }, 1500);
+      
+      // Redirect to Wall
+      setTimeout(() => {
+        wx.switchTab({ url: '/pages/wall/wall' });
+      }, 1500);
+
     } catch (err) {
-      wx.showToast({ title: '提交失败，请重试', icon: 'none' });
+      console.error("Submission failed:", err);
+      wx.showToast({ title: 'Submit Failed', icon: 'none' });
     } finally {
       this.setData({ loading: false });
     }
   },
 
+  /**
+   * Helper functions
+   */
   chooseImage() {
     wx.chooseImage({
       count: 1,

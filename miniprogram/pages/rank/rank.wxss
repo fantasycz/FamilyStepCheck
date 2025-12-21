@@ -16,7 +16,7 @@ page { background-color: #f8f8f8; }
 }
 .tab-box {
   display: flex;
-  background: #fff;
+  background: #58be6a;
   border: 2rpx solid #58be6a;
   border-radius: 50rpx;
   overflow: hidden;
@@ -26,11 +26,11 @@ page { background-color: #f8f8f8; }
   text-align: center;
   padding: 12rpx 0;
   font-size: 26rpx;
-  color: #58be6a;
+  color: #ffffff;
 }
 .tab-item.active {
-  background: #58be6a;
-  color: #fff;
+  background: #ffffff;
+  color: #58be6a;
 }
 
 /* 列表容器 */
