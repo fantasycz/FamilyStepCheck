@@ -1,0 +1,16 @@
+.wall-container { padding: 20rpx; background: #f4f4f4; min-height: 100vh; }
+.post-card { background: #fff; border-radius: 15rpx; padding: 25rpx; margin-bottom: 25rpx; }
+
+.user-info { display: flex; align-items: center; margin-bottom: 20rpx; }
+.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; background: #eee; }
+.text-info { margin-left: 20rpx; display: flex; flex-direction: column; }
+.nickname { font-size: 30rpx; font-weight: bold; color: #333; }
+.time { font-size: 24rpx; color: #999; margin-top: 5rpx; }
+
+.content { padding-left: 0rpx; }
+.step-tag { background: #e8f5e9; color: #2e7d32; padding: 5rpx 20rpx; border-radius: 30rpx; font-size: 26rpx; display: inline-block; margin-bottom: 15rpx; }
+.bold { font-weight: bold; }
+.mood-text { display: block; font-size: 30rpx; color: #444; line-height: 1.6; margin-bottom: 20rpx; }
+.post-image { width: 100%; border-radius: 10rpx; }
+
+.no-data { text-align: center; color: #999; margin-top: 100rpx; }

@@ -1,0 +1,46 @@
+<view class="container">
+  <view class="login-wrapper" wx:if="{{!userInfo}}">
+    <view class="welcome-text">欢迎来到步数打卡</view>
+    <view class="login-card">
+      <view class="login-tips">请设置您的打卡个人信息</view>
+      
+      <button class="avatar-wrapper" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar-preview" src="{{tempAvatar || 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png'}}"></image>
+        <view class="edit-text">点击选择头像</view>
+      </button> 
+
+      <view class="nickname-item">
+        <text class="label">昵称</text>
+        <input type="nickname" class="nickname-input" placeholder="点击获取或手动输入" bindblur="onInputNickname" />
+      </view>
+      
+      <button class="login-btn" type="primary" bindtap="confirmLogin">确认登录</button>
+    </view>
+  </view>
+
+  <view class="checkin-form" wx:else>
+    <view class="card">
+      <view class="title">今日打卡</view>
+      
+      <view class="item">
+        <text class="label">今日步数</text>
+        <input class="input-field" type="number" placeholder="请输入步数" bindinput="onStepInput" value="{{steps}}" />
+      </view>
+
+      <view class="item">
+        <text class="label">今日感想</text>
+        <textarea class="textarea-field" placeholder="写下今天的运动心情..." bindinput="onMoodInput" value="{{mood}}"></textarea>
+      </view>
+
+      <view class="item">
+        <text class="label">上传美照</text>
+        <view class="upload-area" bindtap="chooseImage">
+          <image wx:if="{{tempImgPath}}" src="{{tempImgPath}}" mode="aspectFill" class="preview-img"></image>
+          <view wx:else class="plus-icon">+</view>
+        </view>
+      </view>
+
+      <button class="submit-btn" type="primary" bindtap="submitData" loading="{{loading}}">立即提交</button>
+    </view>
+  </view>
+</view>

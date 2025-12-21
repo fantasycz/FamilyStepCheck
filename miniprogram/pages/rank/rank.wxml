@@ -1,0 +1,43 @@
+<view class="rank-container">
+  <view class="nav-bg"></view>
+
+  <view class="tab-wrapper">
+    <view class="tab-box">
+      <view class="tab-item {{currentTab === 'all' ? 'active' : ''}}" bindtap="switchTab" data-type="all">全部排行</view>
+      <view class="tab-item {{currentTab === 'seven' ? 'active' : ''}}" bindtap="switchTab" data-type="seven">最近7天</view>
+    </view>
+  </view>
+
+  <view class="list-wrapper">
+    <block wx:if="{{rankList && rankList.length > 0}}">
+      <block wx:for="{{rankList}}" wx:key="_id">
+        
+        <view class="rank-card {{index === 0 ? 'first-place' : ''}}">
+          
+          <view class="rank-index {{index === 0 ? 'gold-num' : (index === 1 ? 'silver-num' : (index === 2 ? 'bronze-num' : 'common-num'))}}">
+            {{index + 1}}
+          </view>
+
+          <view class="avatar-box {{index === 0 ? 'border-gold' : (index === 1 ? 'border-silver' : (index === 2 ? 'border-bronze' : ''))}}">
+            <image class="user-avatar" src="{{item.userInfo.avatarUrl || 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png'}}" mode="aspectFill"></image>
+          </view>
+
+          <view class="user-main">
+            <text class="user-name">{{item.userInfo.nickName || '运动达人'}}</text>
+          </view>
+
+          <view class="steps-display">
+            <text class="step-value {{index === 0 ? 'gold-text' : (index === 1 ? 'silver-text' : (index === 2 ? 'bronze-text' : ''))}}">{{item.stepsDisplay}}</text>
+            <text class="step-label">步</text>
+          </view>
+        </view>
+        
+      </block>
+    </block>
+
+    <view wx:elif="{{rankList !== null && rankList.length === 0}}" class="rank-empty">
+      <icon type="info" size="40" color="#ccc"></icon>
+      <text class="empty-text">暂无排行数据，快去抢占榜首吧！</text>
+    </view>
+  </view>
+</view>

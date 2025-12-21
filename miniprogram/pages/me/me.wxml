@@ -1,0 +1,60 @@
+<view class="me-container">
+  <view class="user-card">
+    <block wx:if="{{userInfo}}">
+      <image class="avatar" src="{{userInfo.avatarUrl}}"></image>
+      <view class="info">
+        <text class="nickname">{{userInfo.nickName}}</text>
+        <text class="status">坚持运动中...</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="avatar" style="background: #eee;"></view>
+      <view class="info">
+        <text class="nickname" style="color: #ccc;">未登录用户</text>
+        <text class="status">登录后同步数据</text>
+      </view>
+    </block>
+  </view>
+
+  <view class="stats-row">
+    <view class="stats-item">
+      <text class="num">{{totalSteps || '0'}}</text>
+      <text class="label">累计步数</text>
+    </view>
+    <view class="stats-item">
+      <text class="num">{{totalDays || '0'}}</text>
+      <text class="label">打卡次数</text>
+    </view>
+  </view>
+
+  <view class="history-title">历史足迹</view>
+  
+  <view class="history-list">
+    <block wx:if="{{myHistory && myHistory.length > 0}}">
+      <block wx:for="{{myHistory}}" wx:key="_id">
+        <view class="history-item">
+          <view class="date-side">
+            <text class="date">{{item.dateStr}}</text>
+          </view>
+          <view class="content-side">
+            <view class="step-count">{{item.stepsDisplay}} 步</view>
+            <text class="mood">{{item.mood}}</text>
+            <image wx:if="{{item.imgFileID}}" class="history-img" src="{{item.imgFileID}}" mode="aspectFill"></image>
+          </view>
+
+          <view class="delete-btn" bindtap="deleteRecord" data-id="{{item._id}}" data-fileid="{{item.imgFileID}}">
+            <text class="delete-icon">×</text>
+          </view>
+        </view>
+      </block>
+    </block>
+
+    <view wx:elif="{{myHistory && myHistory.length === 0}}" class="empty-state">
+      <view class="empty-box">
+        <icon type="info" size="60" color="#ddd"></icon>
+        <text class="empty-text">还没有打卡记录哦</text>
+        <button class="go-btn" bindtap="goToIndex">去开启第一步</button>
+      </view>
+    </view>
+  </view>
+</view>

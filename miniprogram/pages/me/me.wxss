@@ -1,0 +1,93 @@
+.me-container { padding: 30rpx; background: #f7f8fa; min-height: 100vh; }
+
+/* 用户信息卡片 */
+.user-card {
+  display: flex; align-items: center; padding: 40rpx;
+  background: #fff; border-radius: 24rpx; margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.05);
+}
+.avatar { width: 120rpx; height: 120rpx; border-radius: 60rpx; margin-right: 30rpx; background: #eee; }
+.nickname { font-size: 36rpx; font-weight: bold; display: block; }
+.status { font-size: 24rpx; color: #999; margin-top: 10rpx; }
+
+/* 统计行 */
+.stats-row {
+  display: flex; background: #fff; border-radius: 24rpx; padding: 30rpx 0;
+  margin-bottom: 40rpx; box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.05);
+}
+.stats-item { flex: 1; text-align: center; border-right: 1rpx solid #eee; }
+.stats-item:last-child { border-right: none; }
+.num { display: block; font-size: 32rpx; font-weight: bold; color: #07c160; }
+.label { font-size: 22rpx; color: #666; }
+
+/* 历史列表 */
+.history-title { font-size: 30rpx; font-weight: bold; margin-bottom: 20rpx; color: #333; padding-left: 10rpx; }
+.history-item {
+  display: flex; background: #fff; border-radius: 20rpx; padding: 30rpx;
+  margin-bottom: 25rpx; position: relative; /* 必须设置，让删除按钮相对于此定位 */
+  box-shadow: 0 4rpx 15rpx rgba(0,0,0,0.03);
+}
+
+.date-side { width: 160rpx; font-size: 24rpx; color: #999; }
+.content-side { flex: 1; border-left: 6rpx solid #07c160; padding-left: 25rpx; margin-right: 40rpx; }
+.step-count { font-size: 30rpx; font-weight: bold; color: #333; margin-bottom: 12rpx; }
+.mood { font-size: 26rpx; color: #666; display: block; margin-bottom: 15rpx; line-height: 1.5; }
+.history-img { width: 140rpx; height: 140rpx; border-radius: 12rpx; background: #f0f0f0; }
+
+/* --- 新增：删除按钮样式 --- */
+.delete-btn {
+  position: absolute;
+  top: 10rpx;
+  right: 15rpx;
+  padding: 20rpx; /* 增大点击热区 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-icon {
+  font-size: 44rpx;
+  color: #ddd; /* 默认浅灰色，不抢眼 */
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+/* 模拟点击效果：手指按下时图标变红 */
+.delete-btn:active .delete-icon {
+  color: #ff4d4f;
+}
+
+/* 空状态容器 */
+.empty-state {
+  padding: 100rpx 0;
+  text-align: center;
+  background: #fff;
+  border-radius: 24rpx;
+}
+
+.empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.empty-text {
+  margin-top: 30rpx;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 引导按钮 */
+.go-btn {
+  margin-top: 40rpx;
+  background-color: #07c160;
+  color: white;
+  font-size: 28rpx;
+  border-radius: 50rpx;
+  padding: 0 60rpx;
+  line-height: 80rpx;
+}
+
+.go-btn:active {
+  opacity: 0.8;
+}
