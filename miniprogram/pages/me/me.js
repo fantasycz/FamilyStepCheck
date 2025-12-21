@@ -1,21 +1,30 @@
 // pages/me/me.js
-const db = wx.cloud.database();
-
 Page({
   data: {
     userInfo: null,
     myHistory: [],
-    totalSteps: '0', // 初始设为字符串，保持显示一致性
+    totalSteps: '0',
     totalDays: 0,
-    isLoaded: false // 标记是否已完成首次加载，用于控制骨架屏或显示逻辑
+    page: 0,
+    hasMore: true,
+    loading: false,
+    isLoaded: false
   },
 
   onShow() {
+    // 1. 必须先定义这个方法（见下方），这里才能调用
     this.checkLoginStatus();
-    this.fetchMyHistory();
+    
+    // 只有登录了才去加载数据
+    if (this.data.userInfo) {
+      this.reload();
+    } else {
+      // 未登录时清空数据状态
+      this.setData({ myHistory: [], totalSteps: '0', totalDays: 0 });
+    }
   },
 
-  // 检查登录状态
+  // --- 关键修复：定义这个被调用的函数 ---
   checkLoginStatus() {
     const user = wx.getStorageSync('userInfo');
     if (user) {
@@ -25,57 +34,80 @@ Page({
     }
   },
 
-  /**
-   * Fetch History via Cloud Function
-   * @param {Function} callback - 用于下拉刷新完成后的回调
-   */
-  fetchMyHistory(callback = null) {
-    // 如果没有获取到 openid 缓存，且未登录，不触发加载（节省资源）
-    if (!wx.getStorageSync('userInfo')) {
-      this.setData({ myHistory: [], totalSteps: '0', totalDays: 0, isLoaded: true });
-      if (callback) callback();
-      return;
-    }
-
-    if (!this.data.isLoaded) wx.showLoading({ title: 'Loading...', mask: true });
-    
-    wx.cloud.callFunction({
-      name: 'getUserStats'
-    }).then(res => {
-      if (res.result && res.result.success) {
-        const { totalSteps, totalDays, list } = res.result.data;
-        
-        this.setData({
-          myHistory: list,
-          totalSteps: (totalSteps || 0).toLocaleString(),
-          totalDays: totalDays || 0,
-          isLoaded: true
-        });
-      }
-    }).catch(err => {
-      console.error("Cloud call failed:", err);
-      wx.showToast({ title: 'Load Failed', icon: 'none' });
-    }).finally(() => {
-      wx.hideLoading();
-      if (callback) callback(); // 停止下拉刷新动画
+  reload() {
+    this.setData({ page: 0, hasMore: true, myHistory: [] }, () => {
+      this.fetchMyHistory();
     });
   },
 
   /**
-   * Delete Record with confirmation and haptic feedback
+   * 触底加载
+   */
+  onReachBottom() {
+    if (this.data.hasMore && !this.data.loading) {
+      this.setData({ page: this.data.page + 1 }, () => {
+        this.fetchMyHistory();
+      });
+    }
+  },
+
+  /**
+   * 获取历史数据
+   */
+  fetchMyHistory(callback = null) {
+    if (this.data.loading) return;
+
+    this.setData({ loading: true });
+    // 仅在第一次打开页面且没数据时显示全屏 Loading
+    if (!this.data.isLoaded) wx.showLoading({ title: 'Loading...', mask: true });
+    
+    wx.cloud.callFunction({
+      name: 'getUserStats',
+      data: {
+        page: this.data.page,
+        pageSize: 10
+      }
+    }).then(res => {
+      if (res.result && res.result.success) {
+        const { totalSteps, totalDays, list, hasMore } = res.result.data;
+        
+        const newData = {
+          myHistory: this.data.page === 0 ? list : this.data.myHistory.concat(list),
+          hasMore: hasMore,
+          isLoaded: true
+        };
+
+        // 仅在第一页更新统计总数
+        if (this.data.page === 0) {
+          newData.totalSteps = (totalSteps || 0).toLocaleString();
+          newData.totalDays = totalDays || 0;
+        }
+
+        this.setData(newData);
+      }
+    }).catch(err => {
+      console.error("Fetch history failed:", err);
+    }).finally(() => {
+      this.setData({ loading: false });
+      wx.hideLoading();
+      if (callback && typeof callback === 'function') callback();
+    });
+  },
+
+  /**
+   * 删除记录
    */
   async deleteRecord(e) {
     const { id, fileid } = e.currentTarget.dataset;
 
     wx.showModal({
-      title: 'Delete Confirm',
-      content: 'Are you sure you want to delete this record?',
+      title: '确认删除',
+      content: '确定要删除这条足迹吗？',
       confirmColor: '#ff4d4f',
-      confirmText: 'Delete',
       success: async (res) => {
         if (res.confirm) {
-          wx.vibrateShort(); // Haptic feedback before action
-          wx.showLoading({ title: 'Deleting...', mask: true });
+          // wx.vibrateShort();
+          wx.showLoading({ title: '正在删除...' });
           
           try {
             const cloudRes = await wx.cloud.callFunction({
@@ -84,19 +116,12 @@ Page({
             });
 
             if (cloudRes.result && cloudRes.result.success) {
-              wx.showToast({ title: 'Deleted', icon: 'success' });
-              // 这里的优化：不再全文刷新，可以手动过滤 data 里的列表，提升速度
-              const updatedList = this.data.myHistory.filter(item => item._id !== id);
-              this.setData({ myHistory: updatedList });
-              
-              // 重新获取统计数据（或者在前端简单减去对应的步数）
-              this.fetchMyHistory(); 
-            } else {
-              throw new Error(cloudRes.result.error);
+              wx.showToast({ title: '已删除', icon: 'success' });
+              // 删除后简单重置并刷新
+              this.reload();
             }
           } catch (err) {
-            console.error("Delete failed:", err);
-            wx.showToast({ title: 'Delete Failed', icon: 'none' });
+            wx.showToast({ title: '删除失败', icon: 'none' });
           } finally {
             wx.hideLoading();
           }
@@ -105,13 +130,9 @@ Page({
     });
   },
 
-  /**
-   * Manual Pull Down Refresh
-   */
   onPullDownRefresh() {
-    this.fetchMyHistory(() => {
-      wx.stopPullDownRefresh();
-    });
+    this.reload();
+    wx.stopPullDownRefresh();
   },
 
   goToIndex() {

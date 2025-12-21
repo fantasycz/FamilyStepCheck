@@ -31,7 +31,7 @@
   
   <view class="history-list">
     <block wx:if="{{myHistory && myHistory.length > 0}}">
-      <block wx:for="{{myHistory || []}}" wx:key="_id">
+      <block wx:for="{{myHistory}}" wx:key="_id">
         <view class="history-item">
           <view class="date-side">
             <text class="date">{{item.dateStr}}</text>
@@ -47,9 +47,17 @@
           </view>
         </view>
       </block>
+
+      <view class="load-status">
+        <view wx:if="{{loading}}" class="loading-box">
+          <view class="loading-spin"></view>
+          <text>正在同步历史...</text>
+        </view>
+        <view wx:if="{{!hasMore && myHistory.length > 5}}" class="no-more">—— 已加载全部足迹 ——</view>
+      </view>
     </block>
 
-    <view wx:elif="{{myHistory && myHistory.length === 0}}" class="empty-state">
+    <view wx:elif="{{!loading && myHistory.length === 0}}" class="empty-state">
       <view class="empty-box">
         <icon type="info" size="60" color="#ddd"></icon>
         <text class="empty-text">还没有打卡记录哦</text>

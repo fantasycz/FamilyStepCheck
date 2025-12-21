@@ -1,49 +1,68 @@
+// cloudfunctions/getUserStats/index.js
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const $ = db.command.aggregate
 
 exports.main = async (event, context) => {
-  const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID // 直接从上下文中获取，更安全
+  const { OPENID } = cloud.getWXContext()
+  const page = event.page || 0
+  const pageSize = event.pageSize || 10
 
   try {
-    // 使用聚合查询一次性搞定：总步数、总天数、历史列表
-    const res = await db.collection('check_ins')
-      .aggregate()
-      .match({
-        _openid: openid
-      })
-      .sort({
-        createTime: -1
-      })
-      .group({
-        _id: null,
-        totalSteps: $.sum('$steps'),
-        totalDays: $.sum(1),
-        list: $.push('$$ROOT') // 把原始记录存入列表
-      })
-      .end()
-
-    if (res.list.length === 0) {
-      return { success: true, data: { totalSteps: 0, totalDays: 0, list: [] } }
+    // --- 1. 计算总计数据 (仅在第一页请求时计算) ---
+    let stats = { totalSteps: 0, totalDays: 0 }
+    if (page === 0) {
+      const statsRes = await db.collection('check_ins')
+        .aggregate()
+        .match({ _openid: OPENID }) // 确保 openid 匹配
+        .group({
+          _id: null,
+          totalSteps: $.sum('$steps'),
+          totalDays: $.sum(1)
+        })
+        .end()
+      
+      if (statsRes.list.length > 0) {
+        stats = statsRes.list[0]
+      }
     }
 
-    const stats = res.list[0]
+    // --- 2. 分页获取列表数据 ---
+    const listRes = await db.collection('check_ins')
+      .where({ _openid: OPENID }) // 这里的查询条件必须和 match 一致
+      .orderBy('createTime', 'desc')
+      .skip(page * pageSize)
+      .limit(pageSize)
+      .get()
+
+    // 格式化日期显示（因为 aggregate 之后原有的格式化可能丢失，最好在这里统一处理）
+    const formattedList = listRes.data.map(item => {
+      const date = item.createTime ? new Date(item.createTime) : null;
+      let dateString = '刚刚';
+      if (date) {
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        dateString = `${month}月${day}日`;
+      }
+      return {
+        ...item,
+        dateStr: dateString,
+        stepsDisplay: (Number(item.steps) || 0).toLocaleString()
+      }
+    })
+
     return {
       success: true,
       data: {
         totalSteps: stats.totalSteps,
         totalDays: stats.totalDays,
-        // 在后端完成基础格式化，减轻前端负担
-        list: stats.list.map(item => ({
-          ...item,
-          stepsDisplay: (item.steps || 0).toLocaleString(),
-          dateStr: item.createTime ? new Date(item.createTime).toLocaleDateString() : 'Just now'
-        }))
+        list: formattedList,
+        hasMore: listRes.data.length === pageSize
       }
     }
   } catch (err) {
+    console.error(err)
     return { success: false, error: err }
   }
 }

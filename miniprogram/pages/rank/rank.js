@@ -1,13 +1,13 @@
 // pages/rank/rank.js
 Page({
-  /**
-   * Page initial data
-   */
   data: {
     currentTab: 'all', // 'all' or 'seven'
     rankList: [],
     loading: false,
-    // 内部缓存，减少重复请求
+    page: 0,           // 当前页码
+    pageSize: 20,      // 每页数量
+    hasMore: true,     // 是否还有更多数据
+    // 缓存依然保留，但只缓存第一页数据以提升切换速度
     cache: {
       all: null,
       seven: null
@@ -15,73 +15,94 @@ Page({
   },
 
   onShow() {
-    // 每次显示页面时刷新当前选中的 Tab
-    this.getRankData(true); 
+    this.reload(); 
   },
 
   /**
-   * Tab switching logic with cache support
+   * 重置当前 Tab 的分页并重新加载
+   */
+  reload() {
+    this.setData({
+      page: 0,
+      hasMore: true,
+      // 如果有缓存，先展示缓存的第一页，避免白屏
+      rankList: this.data.cache[this.data.currentTab] || []
+    }, () => {
+      this.getRankData(this.data.rankList.length === 0); // 只有没缓存时才显示大 Loading
+    });
+  },
+
+  /**
+   * Tab 切换逻辑
    */
   switchTab(e) {
     const type = e.currentTarget.dataset.type;
     if (this.data.currentTab === type || this.data.loading) return;
 
-    this.setData({ currentTab: type });
+    this.setData({ 
+      currentTab: type,
+      page: 0,
+      hasMore: true,
+      // 切换瞬间立即展示缓存
+      rankList: this.data.cache[type] || []
+    }, () => {
+      // 切换后自动刷新第一页
+      this.getRankData(this.data.rankList.length === 0);
+    });
+  },
 
-    // 如果缓存有数据，先显示缓存，再静默刷新
-    if (this.data.cache[type]) {
-      this.setData({ rankList: this.data.cache[type] });
-      this.getRankData(false); // 静默更新，不显示 Loading
-    } else {
-      this.setData({ rankList: [] });
-      this.getRankData(true); // 显示 Loading
+  /**
+   * 触底加载更多
+   */
+  onReachBottom() {
+    if (this.data.hasMore && !this.data.loading) {
+      this.setData({ page: this.data.page + 1 }, () => {
+        this.getRankData(false); // 加载更多不需要全局 Loading
+      });
     }
   },
 
   /**
-   * Fetch ranking from Cloud Function
-   * @param {boolean} showLoading - Whether to show the loading toast
+   * 获取排行数据
    */
   getRankData(showLoading = true) {
     if (this.data.loading) return;
     
-    if (showLoading) wx.showLoading({ title: 'Ranking...', mask: true });
+    if (showLoading) wx.showLoading({ title: 'Loading...', mask: true });
     this.setData({ loading: true });
 
-    const isSevenDays = this.data.currentTab === 'seven';
-    const activeTab = this.data.currentTab;
+    const { currentTab, page, pageSize } = this.data;
 
     wx.cloud.callFunction({
       name: 'getRank',
-      data: { isSevenDays }
+      data: { 
+        isSevenDays: currentTab === 'seven',
+        page: page,
+        pageSize: pageSize
+      }
     }).then(res => {
       if (res && res.result && res.result.success) {
-        const list = res.result.list || [];
-        
-        // Data Formatting
-        const formattedData = list.map(item => ({
+        const newList = (res.result.list || []).map(item => ({
           ...item,
-          // Ensure userInfo exists to avoid WXML errors
           userInfo: item.userInfo || { nickName: 'Anonymous', avatarUrl: '' },
           stepsDisplay: (Number(item.totalSteps) || 0).toLocaleString()
         }));
 
-        // Only update if the user hasn't switched tabs while waiting
-        if (this.data.currentTab === activeTab) {
-          this.setData({ 
-            rankList: formattedData,
-            [`cache.${activeTab}`]: formattedData // Update specific cache key
-          });
+        // 处理分页合并逻辑
+        const updatedList = page === 0 ? newList : this.data.rankList.concat(newList);
+
+        // 如果是第一页，更新缓存
+        if (page === 0) {
+          this.setData({ [`cache.${currentTab}`]: newList });
         }
-      } else {
-        throw new Error(res.result?.error || 'Unknown Error');
+
+        this.setData({ 
+          rankList: updatedList,
+          hasMore: res.result.hasMore
+        });
       }
     }).catch(err => {
       console.error("Rank fetch failed:", err);
-      // Only clear list if there's no cache to fall back on
-      if (!this.data.cache[activeTab]) {
-        this.setData({ rankList: [] });
-      }
     }).finally(() => {
       this.setData({ loading: false });
       wx.hideLoading();
@@ -89,10 +110,7 @@ Page({
     });
   },
 
-  /**
-   * Manual Refresh
-   */
   onPullDownRefresh() {
-    this.getRankData(false);
+    this.reload();
   }
 });

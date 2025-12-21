@@ -6,13 +6,13 @@ const $ = db.command.aggregate
 const _ = db.command
 
 exports.main = async (event, context) => {
-  const { isSevenDays } = event
+  const { isSevenDays, page = 0, pageSize = 20 } = event // 接收分页参数
   let matchFilter = {}
 
   if (isSevenDays) {
-    // 处理 7 天时间
     const now = new Date()
-    const ago = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000)
+    // 过去 7 天的计算
+    const ago = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) 
     matchFilter = { createTime: _.gte(ago) }
   }
 
@@ -26,11 +26,18 @@ exports.main = async (event, context) => {
         userInfo: $.first('$userInfo')
       })
       .sort({ totalSteps: -1 })
-      .limit(50)
+      .skip(page * pageSize) // 跳过已加载的条数
+      .limit(pageSize)       // 限制本次返回条数
       .end()
 
-    return { success: true, list: res.list }
+    return { 
+      success: true, 
+      list: res.list,
+      // 如果返回的条数等于 pageSize，说明可能还有下一页
+      hasMore: res.list.length === pageSize 
+    }
   } catch (err) {
+    console.error(err)
     return { success: false, error: err }
   }
 }

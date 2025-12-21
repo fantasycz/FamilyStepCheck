@@ -91,3 +91,35 @@
 .go-btn:active {
   opacity: 0.8;
 }
+
+.load-status {
+  padding: 40rpx 0 100rpx; /* 底部预留更多空间，防止被底部 TabBar 遮挡 */
+  text-align: center;
+  color: #999;
+  font-size: 24rpx;
+}
+
+.loading-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-spin {
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid #58be6a;
+  border-top-color: transparent;
+  border-radius: 50%;
+  margin-right: 12rpx;
+  animation: spin 0.8s linear infinite;
+}
+
+.no-more {
+  color: #ccc;
+  letter-spacing: 2rpx;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

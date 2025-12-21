@@ -11,14 +11,13 @@
   <view class="list-wrapper">
     <block wx:if="{{rankList && rankList.length > 0}}">
       <block wx:for="{{rankList}}" wx:key="_id">
-        
-        <view class="rank-card {{index === 0 ? 'first-place' : ''}}">
+        <view class="rank-card {{index === 0 && page === 0 ? 'first-place' : ''}}">
           
-          <view class="rank-index {{index === 0 ? 'gold-num' : (index === 1 ? 'silver-num' : (index === 2 ? 'bronze-num' : 'common-num'))}}">
-            {{index + 1}}
+          <view class="rank-index {{index === 0 && page === 0 ? 'gold-num' : (index === 1 && page === 0 ? 'silver-num' : (index === 2 && page === 0 ? 'bronze-num' : 'common-num'))}}">
+            {{page * pageSize + index + 1}}
           </view>
 
-          <view class="avatar-box {{index === 0 ? 'border-gold' : (index === 1 ? 'border-silver' : (index === 2 ? 'border-bronze' : ''))}}">
+          <view class="avatar-box {{index === 0 && page === 0 ? 'border-gold' : (index === 1 && page === 0 ? 'border-silver' : (index === 2 && page === 0 ? 'border-bronze' : ''))}}">
             <image class="user-avatar" src="{{item.userInfo.avatarUrl || 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png'}}" mode="aspectFill"></image>
           </view>
 
@@ -27,15 +26,22 @@
           </view>
 
           <view class="steps-display">
-            <text class="step-value {{index === 0 ? 'gold-text' : (index === 1 ? 'silver-text' : (index === 2 ? 'bronze-text' : ''))}}">{{item.stepsDisplay}}</text>
+            <text class="step-value {{index === 0 && page === 0 ? 'gold-text' : (index === 1 && page === 0 ? 'silver-text' : (index === 2 && page === 0 ? 'bronze-text' : ''))}}">{{item.stepsDisplay}}</text>
             <text class="step-label">步</text>
           </view>
         </view>
-        
       </block>
+
+      <view class="load-status">
+        <view wx:if="{{loading}}" class="loading-box">
+          <view class="loading-spin"></view>
+          <text>正在加载排名...</text>
+        </view>
+        <view wx:if="{{!hasMore && rankList.length > 0}}" class="no-more">—— 已显示前 {{rankList.length}} 名 ——</view>
+      </view>
     </block>
 
-    <view wx:elif="{{rankList !== null && rankList.length === 0}}" class="rank-empty">
+    <view wx:elif="{{!loading && rankList.length === 0}}" class="rank-empty">
       <icon type="info" size="40" color="#ccc"></icon>
       <text class="empty-text">暂无排行数据，快去抢占榜首吧！</text>
     </view>

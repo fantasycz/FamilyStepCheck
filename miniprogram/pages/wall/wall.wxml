@@ -3,7 +3,7 @@
     <block wx:for="{{posts}}" wx:key="_id">
       <view class="post-card">
         <view class="user-info">
-          <image class="avatar" src="{{item.userInfo.avatarUrl}}"></image>
+          <image class="avatar" src="{{item.userInfo.avatarUrl}}" mode="aspectFill"></image>
           <view class="text-info">
             <text class="nickname">{{item.userInfo.nickName}}</text>
             <text class="time">{{item.dateStr}}</text>
@@ -19,15 +19,31 @@
             class="post-image" 
             src="{{item.imgFileID}}" 
             mode="widthFix" 
+            lazy-load="{{true}}"
             bindtap="previewImg" 
             data-url="{{item.imgFileID}}">
           </image>
         </view>
+
+        <view class="interact-bar">
+          <view class="like-btn" bindtap="onLike" data-id="{{item._id}}">
+            <text class="heart-icon {{item.isLiked ? 'liked' : ''}}">{{item.isLiked ? '❤️' : '🤍'}}</text>
+            <text class="like-count">{{item.likeCount || 0}}</text>
+          </view>
+        </view>
       </view>
     </block>
+
+    <view class="load-status">
+      <view wx:if="{{loading}}" class="loading-box">
+        <view class="loading-spin"></view>
+        <text>正在加载更多...</text>
+      </view>
+      <view wx:if="{{!hasMore && posts.length > 0}}" class="no-more">—— 已经到底啦 ——</view>
+    </view>
   </block>
 
-  <view class="no-data" wx:if="{{posts.length === 0}}">
+  <view class="no-data" wx:if="{{posts.length === 0 && !loading}}">
     <text>还没有人打卡哦，快去做第一个吧！</text>
   </view>
 </view>
