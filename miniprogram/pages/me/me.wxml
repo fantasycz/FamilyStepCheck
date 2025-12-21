@@ -31,7 +31,7 @@
   
   <view class="history-list">
     <block wx:if="{{myHistory && myHistory.length > 0}}">
-      <block wx:for="{{myHistory}}" wx:key="_id">
+      <block wx:for="{{myHistory || []}}" wx:key="_id">
         <view class="history-item">
           <view class="date-side">
             <text class="date">{{item.dateStr}}</text>

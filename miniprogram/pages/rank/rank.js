@@ -25,19 +25,21 @@ Page({
       name: 'getRank',
       data: { isSevenDays }
     }).then(res => {
-      if (res.result && res.result.success) {
+      if (res && res.result && res.result.success) {
         const list = res.result.list || [];
         const formattedData = list.map(item => ({
           ...item,
-          stepsDisplay: (item.totalSteps || 0).toLocaleString()
+          stepsDisplay: (Number(item.totalSteps) || 0).toLocaleString()
         }));
 
         this.setData({ rankList: formattedData });
       } else {
+        this.setData({ rankList: [] });
         console.error("计算失败", res.result.error);
       }
       wx.hideLoading();
     }).catch(err => {
+      this.setData({ rankList: [] });
       console.error("云函数调用失败", err);
       wx.hideLoading();
     });

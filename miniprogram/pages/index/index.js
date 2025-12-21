@@ -10,8 +10,8 @@ Page({
     tempAvatar: '',
     inputNickname: '',
     someList: [],
-    posts: [],
-    rankList: [],
+    // posts: [],
+    // rankList: [],
     myHistory: []
   },
 

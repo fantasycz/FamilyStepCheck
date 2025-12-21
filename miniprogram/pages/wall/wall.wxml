@@ -1,28 +1,30 @@
 <view class="wall-container">
-  <block wx:for="{{posts}}" wx:key="_id">
-    <view class="post-card">
-      <view class="user-info">
-        <image class="avatar" src="{{item.userInfo.avatarUrl}}"></image>
-        <view class="text-info">
-          <text class="nickname">{{item.userInfo.nickName}}</text>
-          <text class="time">{{item.dateStr}}</text>
+  <block wx:if="{{posts && posts.length > 0}}">
+    <block wx:for="{{posts}}" wx:key="_id">
+      <view class="post-card">
+        <view class="user-info">
+          <image class="avatar" src="{{item.userInfo.avatarUrl}}"></image>
+          <view class="text-info">
+            <text class="nickname">{{item.userInfo.nickName}}</text>
+            <text class="time">{{item.dateStr}}</text>
+          </view>
+        </view>
+        
+        <view class="content">
+          <view class="step-tag">今日步数：<text class="bold">{{item.stepsDisplay}}</text></view>
+          <text class="mood-text">{{item.mood}}</text>
+          
+          <image 
+            wx:if="{{item.imgFileID}}" 
+            class="post-image" 
+            src="{{item.imgFileID}}" 
+            mode="widthFix" 
+            bindtap="previewImg" 
+            data-url="{{item.imgFileID}}">
+          </image>
         </view>
       </view>
-      
-      <view class="content">
-        <view class="step-tag">今日步数：<text class="bold">{{item.stepsDisplay}}</text></view>
-        <text class="mood-text">{{item.mood}}</text>
-        
-        <image 
-          wx:if="{{item.imgFileID}}" 
-          class="post-image" 
-          src="{{item.imgFileID}}" 
-          mode="widthFix" 
-          bindtap="previewImg" 
-          data-url="{{item.imgFileID}}">
-        </image>
-      </view>
-    </view>
+    </block>
   </block>
 
   <view class="no-data" wx:if="{{posts.length === 0}}">
