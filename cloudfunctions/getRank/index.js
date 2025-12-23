@@ -1,43 +1,68 @@
-// cloudfunctions/getRank/index.js
-const cloud = require('wx-server-sdk')
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
-const db = cloud.database()
-const $ = db.command.aggregate
-const _ = db.command
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+const db = cloud.database();
+
+// --- 模拟 Redis 的内存存储 ---
+let cache = {
+  seven: { data: null, updateTime: 0 },
+  all: { data: null, updateTime: 0 }
+};
+const CACHE_EXPIRE = 5 * 60 * 1000; // 缓存 5 分钟 (300,000ms)
 
 exports.main = async (event, context) => {
-  const { isSevenDays, page = 0, pageSize = 20 } = event // 接收分页参数
-  let matchFilter = {}
+  const { isSevenDays, page = 0, pageSize = 20 } = event;
+  const typeKey = isSevenDays ? 'seven' : 'all';
+  const now = Date.now();
 
-  if (isSevenDays) {
-    const now = new Date()
-    // 过去 7 天的计算
-    const ago = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) 
-    matchFilter = { createTime: _.gte(ago) }
+  // 1. 检查内存缓存是否有效 (仅针对第一页 page === 0 进行缓存)
+  if (page === 0 && cache[typeKey].data && (now - cache[typeKey].updateTime < CACHE_EXPIRE)) {
+    console.log(`Using Memory Cache for: ${typeKey}`);
+    return { 
+      success: true, 
+      list: cache[typeKey].data, 
+      hasMore: cache[typeKey].data.length === pageSize,
+      fromCache: true 
+    };
   }
 
+  // 2. 如果缓存失效或请求非第一页，执行数据库聚合查询
   try {
-    const res = await db.collection('check_ins')
-      .aggregate()
+    let matchFilter = {};
+    // 根据是否是 7 天来决定限制数量
+    // 如果是总榜 (isSevenDays 为 false)，只取前 3 名
+    const limitCount = isSevenDays ? pageSize : 3;
+
+    if (isSevenDays) {
+      const ago = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      matchFilter = { createTime: db.command.gte(ago) };
+    }
+
+    const res = await db.collection('check_ins').aggregate()
       .match(matchFilter)
       .group({
         _id: '$_openid',
-        totalSteps: $.sum('$steps'),
-        userInfo: $.first('$userInfo')
+        totalSteps: db.command.aggregate.sum('$steps'),
+        userInfo: db.command.aggregate.first('$userInfo')
       })
       .sort({ totalSteps: -1 })
-      .skip(page * pageSize) // 跳过已加载的条数
-      .limit(pageSize)       // 限制本次返回条数
-      .end()
+      .skip(page * pageSize)
+      .limit(limitCount)
+      .end();
+
+    // 3. 更新第一页的内存缓存
+    if (page === 0 && res.list.length > 0) {
+      cache[typeKey] = {
+        data: res.list,
+        updateTime: now
+      };
+    }
 
     return { 
       success: true, 
-      list: res.list,
-      // 如果返回的条数等于 pageSize，说明可能还有下一页
-      hasMore: res.list.length === pageSize 
-    }
+      list: res.list, 
+      hasMore: isSevenDays ? res.list.length === pageSize : false 
+    };
   } catch (err) {
-    console.error(err)
-    return { success: false, error: err }
+    return { success: false, error: err };
   }
-}
+};

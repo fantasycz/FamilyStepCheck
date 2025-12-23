@@ -1,7 +1,7 @@
 // pages/rank/rank.js
 Page({
   data: {
-    currentTab: 'all', // 'all' or 'seven'
+    currentTab: 'seven', // 'all' or 'seven'
     rankList: [],
     loading: false,
     page: 0,           // 当前页码
@@ -55,7 +55,8 @@ Page({
    * 触底加载更多
    */
   onReachBottom() {
-    if (this.data.hasMore && !this.data.loading) {
+    // 仅在“最近7天”且有更多数据时才加载
+    if (this.data.currentTab === 'seven' && this.data.hasMore && !this.data.loading) {
       this.setData({ page: this.data.page + 1 }, () => {
         this.getRankData(false); // 加载更多不需要全局 Loading
       });

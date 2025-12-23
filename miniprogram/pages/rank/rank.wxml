@@ -3,8 +3,8 @@
 
   <view class="tab-wrapper">
     <view class="tab-box">
-      <view class="tab-item {{currentTab === 'all' ? 'active' : ''}}" bindtap="switchTab" data-type="all">全部排行</view>
       <view class="tab-item {{currentTab === 'seven' ? 'active' : ''}}" bindtap="switchTab" data-type="seven">最近7天</view>
+      <view class="tab-item {{currentTab === 'all' ? 'active' : ''}}" bindtap="switchTab" data-type="all">全部排行</view>
     </view>
   </view>
 

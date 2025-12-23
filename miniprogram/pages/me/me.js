@@ -12,19 +12,33 @@ Page({
   },
 
   onShow() {
-    // 1. 必须先定义这个方法（见下方），这里才能调用
     this.checkLoginStatus();
     
-    // 只有登录了才去加载数据
     if (this.data.userInfo) {
+      // --- 优化点 1：首次显示时尝试从本地缓存加载 ---
+      if (!this.data.isLoaded) {
+        this.loadCache();
+      }
       this.reload();
     } else {
-      // 未登录时清空数据状态
-      this.setData({ myHistory: [], totalSteps: '0', totalDays: 0 });
+      this.setData({ myHistory: [], totalSteps: '0', totalDays: 0, isLoaded: false });
     }
   },
 
-  // --- 关键修复：定义这个被调用的函数 ---
+  // --- 优化点 2：读取本地存储的方法 ---
+  loadCache() {
+    const cache = wx.getStorageSync('me_page_data');
+    if (cache) {
+      console.log("Loading from local cache...");
+      this.setData({
+        myHistory: cache.list || [],
+        totalSteps: (cache.totalSteps || 0).toLocaleString(),
+        totalDays: cache.totalDays || 0,
+        isLoaded: true // 标记已加载，这样 fetch 时就不会显示全屏 Loading
+      });
+    }
+  },
+
   checkLoginStatus() {
     const user = wx.getStorageSync('userInfo');
     if (user) {
@@ -35,14 +49,12 @@ Page({
   },
 
   reload() {
-    this.setData({ page: 0, hasMore: true, myHistory: [] }, () => {
+    // 重置页码，开始获取最新数据
+    this.setData({ page: 0, hasMore: true }, () => {
       this.fetchMyHistory();
     });
   },
 
-  /**
-   * 触底加载
-   */
   onReachBottom() {
     if (this.data.hasMore && !this.data.loading) {
       this.setData({ page: this.data.page + 1 }, () => {
@@ -54,12 +66,15 @@ Page({
   /**
    * 获取历史数据
    */
-  fetchMyHistory(callback = null) {
+  fetchMyHistory() {
     if (this.data.loading) return;
 
     this.setData({ loading: true });
-    // 仅在第一次打开页面且没数据时显示全屏 Loading
-    if (!this.data.isLoaded) wx.showLoading({ title: 'Loading...', mask: true });
+    
+    // 如果已经有缓存数据（isLoaded为true），则不再显示干扰用户的全屏 Loading
+    if (!this.data.isLoaded) {
+      wx.showLoading({ title: 'Loading...', mask: true });
+    }
     
     wx.cloud.callFunction({
       name: 'getUserStats',
@@ -71,26 +86,30 @@ Page({
       if (res.result && res.result.success) {
         const { totalSteps, totalDays, list, hasMore } = res.result.data;
         
-        const newData = {
+        const updateData = {
           myHistory: this.data.page === 0 ? list : this.data.myHistory.concat(list),
           hasMore: hasMore,
           isLoaded: true
         };
 
-        // 仅在第一页更新统计总数
         if (this.data.page === 0) {
-          newData.totalSteps = (totalSteps || 0).toLocaleString();
-          newData.totalDays = totalDays || 0;
+          updateData.totalSteps = (totalSteps || 0).toLocaleString();
+          updateData.totalDays = totalDays || 0;
+
+          // --- 优化点 3：将第一页数据存入本地缓存 ---
+          wx.setStorage({
+            key: 'me_page_data',
+            data: { list, totalSteps, totalDays }
+          });
         }
 
-        this.setData(newData);
+        this.setData(updateData);
       }
     }).catch(err => {
       console.error("Fetch history failed:", err);
     }).finally(() => {
       this.setData({ loading: false });
       wx.hideLoading();
-      if (callback && typeof callback === 'function') callback();
     });
   },
 
@@ -106,7 +125,6 @@ Page({
       confirmColor: '#ff4d4f',
       success: async (res) => {
         if (res.confirm) {
-          // wx.vibrateShort();
           wx.showLoading({ title: '正在删除...' });
           
           try {
@@ -117,7 +135,9 @@ Page({
 
             if (cloudRes.result && cloudRes.result.success) {
               wx.showToast({ title: '已删除', icon: 'success' });
-              // 删除后简单重置并刷新
+              
+              // --- 优化点 4：删除成功后同时清空本地缓存，强制下次刷新 ---
+              wx.removeStorageSync('me_page_data');
               this.reload();
             }
           } catch (err) {

@@ -105,10 +105,12 @@ Page({
     if (loading) return;
     if (!userInfo) return wx.showToast({ title: '请先登录', icon: 'none' });
     
-    const cleanMood = mood.trim();
+    const cleanMood = mood.trim(); // 获取感想内容
     const stepNum = parseInt(steps);
 
-    if (!steps || !cleanMood) return wx.showToast({ title: '请填写步数和心情', icon: 'none' });
+    if (!steps) {
+      return wx.showToast({ title: '请填写步数', icon: 'none' });
+    }
     if (isNaN(stepNum) || stepNum <= 0) return wx.showToast({ title: '步数输入有误', icon: 'none' });
 
     this.setData({ loading: true });
