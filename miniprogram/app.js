@@ -9,5 +9,11 @@ App({
         traceUser: true,
       });
     }
+
+    // --- 初始化 globalData ---
+    this.globalData = {
+      needRefreshRank: false,
+      userInfo: null
+    };
   },
 });

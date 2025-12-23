@@ -7,29 +7,28 @@ let cache = {
   seven: { data: null, updateTime: 0 },
   all: { data: null, updateTime: 0 }
 };
-const CACHE_EXPIRE = 5 * 60 * 1000; // 缓存 5 分钟 (300,000ms)
+const CACHE_EXPIRE = 5 * 60 * 1000; // 5 分钟
 
 exports.main = async (event, context) => {
-  const { isSevenDays, page = 0, pageSize = 20 } = event;
+  // --- 关键修复 1：接收 forceUpdate 参数 ---
+  const { isSevenDays, page = 0, pageSize = 20, forceUpdate = false } = event;
   const typeKey = isSevenDays ? 'seven' : 'all';
   const now = Date.now();
 
-  // 1. 检查内存缓存是否有效 (仅针对第一页 page === 0 进行缓存)
-  if (page === 0 && cache[typeKey].data && (now - cache[typeKey].updateTime < CACHE_EXPIRE)) {
+  // --- 关键修复 2：只有在 NOT forceUpdate 时才使用缓存 ---
+  if (!forceUpdate && page === 0 && cache[typeKey].data && (now - cache[typeKey].updateTime < CACHE_EXPIRE)) {
     console.log(`Using Memory Cache for: ${typeKey}`);
     return { 
       success: true, 
       list: cache[typeKey].data, 
-      hasMore: cache[typeKey].data.length === pageSize,
+      hasMore: isSevenDays ? cache[typeKey].data.length === pageSize : false,
       fromCache: true 
     };
   }
 
-  // 2. 如果缓存失效或请求非第一页，执行数据库聚合查询
+  // 2. 执行数据库聚合查询
   try {
     let matchFilter = {};
-    // 根据是否是 7 天来决定限制数量
-    // 如果是总榜 (isSevenDays 为 false)，只取前 3 名
     const limitCount = isSevenDays ? pageSize : 3;
 
     if (isSevenDays) {
@@ -50,7 +49,7 @@ exports.main = async (event, context) => {
       .end();
 
     // 3. 更新第一页的内存缓存
-    if (page === 0 && res.list.length > 0) {
+    if (page === 0) {
       cache[typeKey] = {
         data: res.list,
         updateTime: now
@@ -63,6 +62,7 @@ exports.main = async (event, context) => {
       hasMore: isSevenDays ? res.list.length === pageSize : false 
     };
   } catch (err) {
+    console.error(err);
     return { success: false, error: err };
   }
 };
