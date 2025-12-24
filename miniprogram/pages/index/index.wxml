@@ -1,11 +1,11 @@
 <view class="container">
-  <view class="login-wrapper" wx:if="{{!userInfo}}">
+  <view class="login-wrapper" wx:if="{{!hasUserInfo}}">
     <view class="welcome-text">欢迎来到步数打卡</view>
     <view class="login-card">
       <view class="login-tips">请设置您的打卡个人信息</view>
       
       <button class="avatar-wrapper" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-        <image class="avatar-preview" src="{{tempAvatar || 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png'}}"></image>
+        <image class="avatar-preview" src="{{tempAvatar || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}"></image>
         <view class="edit-text">点击选择头像</view>
       </button> 
 

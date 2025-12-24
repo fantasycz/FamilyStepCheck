@@ -6,13 +6,16 @@
     "pages/me/me"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#07c160",
+    "navigationBarBackgroundColor": "#58be6a",
     "navigationBarTitleText": "阳光运动打卡",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "white",
+    "enablePullDownRefresh": true, 
+    "backgroundTextStyle": "dark",
+    "backgroundColor": "#f8f8f8"
   },
   "tabBar": {
     "color": "#999",
-    "selectedColor": "#07c160",
+    "selectedColor": "#58be6a",
     "backgroundColor": "#fff",
     "list": [
       {

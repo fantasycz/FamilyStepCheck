@@ -3,52 +3,51 @@ const db = wx.cloud.database();
 
 Page({
   data: {
-    userInfo: null,
+    // 关键修复：初始值设为空对象 {} 而非 null
+    userInfo: {}, 
     steps: '',
     mood: '',
     tempImgPath: '',
-    loading: true, // 初始设为 true，等待检查登录状态
+    loading: true, 
     tempAvatar: '',
-    inputNickname: ''
+    inputNickname: '',
+    hasUserInfo: false // 增加一个布尔值用于 WXML 的判断，更安全
   },
 
   async onLoad() {
     const cachedUser = wx.getStorageSync('userInfo');
     const cachedOpenid = wx.getStorageSync('openid');
 
-    // 1. 如果本地有缓存，先直接展示
     if (cachedUser && cachedOpenid) {
-      this.setData({ userInfo: cachedUser, loading: false });
+      this.setData({ 
+        userInfo: cachedUser, 
+        hasUserInfo: true,
+        loading: false 
+      });
       return;
     }
 
-    // 2. 如果本地没缓存或信息不全，执行静默登录并检查远程数据库
     this.checkUserRemote();
   },
 
-  /**
-   * 检查远程数据库是否存在用户信息
-   */
   async checkUserRemote() {
     wx.showLoading({ title: '检查状态...', mask: true });
     try {
-      // 获取/恢复 OpenID
       const loginRes = await wx.cloud.callFunction({ name: 'login' });
       const openid = loginRes.result.openid;
       wx.setStorageSync('openid', openid);
 
-      // 从云数据库查询用户信息 (假设集合名为 'users')
       const userRes = await db.collection('users').where({ _openid: openid }).get();
 
-      if (userRes.data.length > 0) {
+      const userData = userRes.data || [];
+      if (userData && userRes.data.length > 0) {
         const remoteUser = userRes.data[0];
         const userInfo = {
-          avatarUrl: remoteUser.avatarUrl,
-          nickName: remoteUser.nickName
+          avatarUrl: remoteUser.avatarUrl || '',
+          nickName: remoteUser.nickName || '阳光用户'
         };
-        // 自动填充缓存并更新 UI
         wx.setStorageSync('userInfo', userInfo);
-        this.setData({ userInfo });
+        this.setData({ userInfo, hasUserInfo: true });
       }
     } catch (err) {
       console.error("Remote user check failed:", err);
@@ -58,38 +57,36 @@ Page({
     }
   },
 
-  /**
-   * 核心优化：封装图片处理逻辑 (压缩 + 上传)
-   */
   async processAndUploadImage(tempPath, folder) {
     if (!tempPath) return '';
-    // 如果已经是云路径，直接返回
     if (tempPath.startsWith('cloud://')) return tempPath;
 
-    const fileInfo = await wx.getFileInfo({ filePath: tempPath });
-    let finalPath = tempPath;
+    try {
+      const fileInfo = await wx.getFileInfo({ filePath: tempPath });
+      let finalPath = tempPath;
 
-    if (fileInfo.size > 1024 * 1024) {
-      const compressRes = await wx.compressImage({
-        src: tempPath,
-        quality: 75 
+      if (fileInfo.size > 1024 * 1024) {
+        const compressRes = await wx.compressImage({
+          src: tempPath,
+          quality: 75 
+        });
+        finalPath = compressRes.tempFilePath;
+      }
+
+      const suffix = /\.[^\.]+$/.exec(finalPath)[0];
+      const cloudPath = `${folder}/${Date.now()}-${Math.floor(Math.random() * 1000)}${suffix}`;
+      
+      const uploadRes = await wx.cloud.uploadFile({
+        cloudPath,
+        filePath: finalPath
       });
-      finalPath = compressRes.tempFilePath;
+      return uploadRes.fileID;
+    } catch (e) {
+      console.error("Image process error:", e);
+      return '';
     }
-
-    const suffix = /\.[^\.]+$/.exec(finalPath)[0];
-    const cloudPath = `${folder}/${Date.now()}-${Math.floor(Math.random() * 1000)}${suffix}`;
-    
-    const uploadRes = await wx.cloud.uploadFile({
-      cloudPath,
-      filePath: finalPath
-    });
-    return uploadRes.fileID;
   },
 
-  /**
-   * 登录设置逻辑优化：增加数据库存储
-   */
   async confirmLogin() {
     const { tempAvatar, inputNickname, loading } = this.data;
     if (loading) return;
@@ -102,23 +99,15 @@ Page({
 
     try {
       const avatarFileID = await this.processAndUploadImage(tempAvatar, 'avatars');
-      
-      const loginRes = await wx.cloud.callFunction({ name: 'login' });
-      const openid = loginRes.result.openid;
-      wx.setStorageSync('openid', openid);
-
       const userInfo = { avatarUrl: avatarFileID, nickName: inputNickname };
 
-      // 【关键】将用户信息保存到远程数据库，以便下次自动登录
-      // 使用 _openid 作为唯一标识，采用云数据库的高级操作
       await wx.cloud.callFunction({
-        name: 'syncUserInfo', // 建议创建一个简单的同步云函数
+        name: 'syncUserInfo',
         data: userInfo
       });
 
-      this.setData({ userInfo });
+      this.setData({ userInfo, hasUserInfo: true });
       wx.setStorageSync('userInfo', userInfo);
-
       wx.showToast({ title: '登录成功', icon: 'success' });
     } catch (err) {
       console.error("Login failed:", err);
@@ -129,21 +118,16 @@ Page({
     }
   },
 
-  /**
-   * 打卡提交逻辑优化
-   */
   async submitData() {
-    const { steps, mood, tempImgPath, userInfo, loading } = this.data;
+    const { steps, mood, tempImgPath, userInfo, hasUserInfo, loading } = this.data;
     
     if (loading) return;
-    if (!userInfo) return wx.showToast({ title: '请先登录', icon: 'none' });
+    if (!hasUserInfo) return wx.showToast({ title: '请先登录', icon: 'none' });
     
-    const cleanMood = mood.trim(); 
+    const cleanMood = (mood || '').trim(); 
     const stepNum = parseInt(steps);
 
-    if (!steps) {
-      return wx.showToast({ title: '请填写步数', icon: 'none' });
-    }
+    if (!steps) return wx.showToast({ title: '请填写步数', icon: 'none' });
     if (isNaN(stepNum) || stepNum <= 0) return wx.showToast({ title: '步数输入有误', icon: 'none' });
 
     this.setData({ loading: true });
@@ -158,16 +142,18 @@ Page({
           steps: stepNum,
           mood: cleanMood,
           imgFileID: finalFileID,
-          userInfo: userInfo
+          userInfo: userInfo // 此时 userInfo 是个对象，安全
         }
       });
 
       wx.showToast({ title: '打卡成功', icon: 'success' });
-      const app = getApp(); // 获取实例
+      
+      const app = getApp();
       if (app && app.globalData) {
-        app.globalData.needRefreshRank = true; // 通知排行榜刷新
-        app.globalData.needRefreshWall = true; // 通知发现页刷新
+        app.globalData.needRefreshRank = true;
+        app.globalData.needRefreshWall = true;
       }
+      
       this.setData({ steps: '', mood: '', tempImgPath: '' });
       
       setTimeout(() => {
@@ -183,15 +169,11 @@ Page({
     }
   },
 
-  /**
-   * UI 事件
-   */
   chooseImage() {
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      sizeType: ['compressed'],
       success: (res) => {
         this.setData({ tempImgPath: res.tempFiles[0].tempFilePath });
       }
