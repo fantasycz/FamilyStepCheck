@@ -165,7 +165,8 @@ Page({
       wx.showToast({ title: '打卡成功', icon: 'success' });
       const app = getApp(); // 获取实例
       if (app && app.globalData) {
-        getApp().globalData.needRefreshRank = true;
+        app.globalData.needRefreshRank = true; // 通知排行榜刷新
+        app.globalData.needRefreshWall = true; // 通知发现页刷新
       }
       this.setData({ steps: '', mood: '', tempImgPath: '' });
       

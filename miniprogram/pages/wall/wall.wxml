@@ -1,9 +1,9 @@
 <view class="wall-container">
   <block wx:if="{{posts && posts.length > 0}}">
-    <block wx:for="{{posts}}" wx:key="_id">
+    <block wx:for="{{posts}}" wx:key="_id" wx:for-index="index">
       <view class="post-card">
         <view class="user-info">
-          <image class="avatar" src="{{item.userInfo.avatarUrl}}" mode="aspectFill"></image>
+          <image class="avatar" src="{{item.userInfo.avatarUrl || '/images/default-avatar.png'}}" mode="aspectFill"></image>
           <view class="text-info">
             <text class="nickname">{{item.userInfo.nickName}}</text>
             <text class="time">{{item.dateStr}}</text>
@@ -12,7 +12,7 @@
         
         <view class="content">
           <view class="step-tag">今日步数：<text class="bold">{{item.stepsDisplay}}</text></view>
-          <text class="mood-text">{{item.mood}}</text>
+          <text wx:if="{{item.mood}}" class="mood-text">{{item.mood}}</text>
           
           <image 
             wx:if="{{item.imgFileID}}" 
@@ -26,9 +26,11 @@
         </view>
 
         <view class="interact-bar">
-          <view class="like-btn" bindtap="onLike" data-id="{{item._id}}">
-            <text class="heart-icon {{item.isLiked ? 'liked' : ''}}">{{item.isLiked ? '❤️' : '🤍'}}</text>
-            <text class="like-count">{{item.likeCount || 0}}</text>
+          <view class="like-btn" bindtap="onLike" data-id="{{item._id}}" data-index="{{index}}">
+            <view class="heart-box">
+              <text class="heart-icon {{item.isLiked ? 'liked pulse' : ''}}">{{item.isLiked ? '❤️' : '🤍'}}</text>
+            </view>
+            <text class="like-count {{item.isLiked ? 'active' : ''}}">{{item.likeCount || 0}}</text>
           </view>
         </view>
       </view>

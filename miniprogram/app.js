@@ -13,6 +13,7 @@ App({
     // --- 初始化 globalData ---
     this.globalData = {
       needRefreshRank: false,
+      needRefreshWall: false,
       userInfo: null
     };
   },

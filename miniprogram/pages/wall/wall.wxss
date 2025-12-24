@@ -46,33 +46,66 @@
   to { transform: rotate(360deg); }
 }
 
+/* 互动栏容器 */
 .interact-bar {
   margin-top: 20rpx;
   padding-top: 20rpx;
   border-top: 1rpx solid #f0f0f0;
   display: flex;
-  justify-content: flex-end; /* 按钮靠右对齐 */
+  justify-content: flex-end; 
 }
 
+/* 点赞按钮基础样式 */
 .like-btn {
   display: flex;
   align-items: center;
-  padding: 10rpx 20rpx;
+  padding: 10rpx 24rpx;
   background: #f8f8f8;
-  border-radius: 30rpx;
+  border-radius: 40rpx;
+  transition: all 0.2s ease;
+  /* 增加点击时的半透明效果 */
 }
 
+.like-btn:active {
+  background: #f0f0f0;
+  transform: scale(0.95);
+}
+
+/* 心形图标 */
 .heart-icon {
-  font-size: 32rpx;
+  font-size: 34rpx;
   margin-right: 8rpx;
-  transition: transform 0.2s;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: inline-block;
 }
 
-.heart-icon.liked {
-  transform: scale(1.2); /* 点赞后稍微放大一点 */
-}
-
+/* 点赞后的数字颜色 */
 .like-count {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #666;
+  font-variant-numeric: tabular-nums; /* 防止数字变化时布局抖动 */
+}
+
+.like-count.active {
+  color: #ff4d4f;
+  font-weight: bold;
+}
+
+/* --- 核心动画效果 --- */
+
+/* 点赞后的心跳缩放动画 */
+.pulse {
+  animation: heartBeat 0.4s ease-out;
+}
+
+@keyframes heartBeat {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1.2); } /* 停留在一个稍微放大一点的状态 */
+}
+
+/* 装饰性：如果点赞了，让按钮背景也带一点淡淡的红色提示 */
+.like-btn .liked-bg {
+  background: #fff1f0;
 }

@@ -135,6 +135,13 @@ Page({
 
             if (cloudRes.result && cloudRes.result.success) {
               wx.showToast({ title: '已删除', icon: 'success' });
+
+              // --- 关键修改：发射全局刷新信号 ---
+              const app = getApp();
+              if (app.globalData) {
+                app.globalData.needRefreshWall = true; // 通知发现页刷新
+                app.globalData.needRefreshRank = true; // 通知排行榜刷新
+              }
               
               // --- 优化点 4：删除成功后同时清空本地缓存，强制下次刷新 ---
               wx.removeStorageSync('me_page_data');

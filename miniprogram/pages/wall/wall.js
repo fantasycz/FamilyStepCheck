@@ -4,15 +4,34 @@ Page({
     posts: [],
     page: 0,
     hasMore: true,
-    loading: false
+    loading: false,
+    likeLoading: false // 点赞防抖标记
   },
 
   onShow() {
-    this.reload();
+    const app = getApp();
+    // 检查是否有来自“我的”页面（删除）或“首页”（新增）的刷新信号
+    if (app.globalData && app.globalData.needRefreshWall) {
+      console.log("Wall: 收到刷新信号，正在重载数据...");
+      app.globalData.needRefreshWall = false; // 消耗信号
+      this.reload(); // 执行你现有的 reload 函数
+    } else {
+      // 只有在页面栈刚建立且没有数据时才自动加载一次
+      if (this.data.posts.length === 0) {
+        this.reload();
+      }
+    }
   },
 
+  /**
+   * 刷新页面
+   */
   reload() {
-    this.setData({ page: 0, hasMore: true, posts: [] }, () => {
+    this.setData({ 
+      page: 0, 
+      hasMore: true, 
+      posts: [] 
+    }, () => {
       this.fetchPosts();
     });
   },
@@ -30,7 +49,7 @@ Page({
   },
 
   /**
-   * 获取动态列表 - 增加分页与状态处理
+   * 获取动态列表
    */
   fetchPosts() {
     if (this.data.loading) return;
@@ -53,7 +72,7 @@ Page({
         });
       }
     }).catch(err => {
-      console.error("Load failed", err);
+      console.error("Load posts failed:", err);
     }).finally(() => {
       this.setData({ loading: false });
       wx.hideNavigationBarLoading();
@@ -62,58 +81,69 @@ Page({
   },
 
   /**
-   * 核心功能：点赞/取消点赞 (2025-12-18 需求)
-   * 采用“乐观更新”策略，提升交互流畅度
+   * 核心功能：点赞/取消点赞
+   * 策略：乐观更新 + 异常回滚 (已移除震动)
    */
   async onLike(e) {
-    const postId = e.currentTarget.dataset.id;
+    const { id, index } = e.currentTarget.dataset;
     const posts = this.data.posts;
-    const index = posts.findIndex(item => item._id === postId);
-    
-    if (index === -1) return;
-
-    // 1. 乐观更新：先修改本地数据，让用户瞬间看到效果
     const item = posts[index];
-    const isLiked = !item.isLiked;
-    const likeCount = isLiked ? (item.likeCount + 1) : Math.max(0, item.likeCount - 1);
+    
+    // 1. 防抖处理
+    if (this.data.likeLoading || !item) return;
 
-    // 瞬间更新 UI
+    // 2. 暂存当前状态用于失败时回滚
+    const originalIsLiked = item.isLiked;
+    const originalLikeCount = item.likeCount;
+
+    // 3. 计算新状态
+    const newIsLiked = !originalIsLiked;
+    const newLikeCount = newIsLiked ? (originalLikeCount + 1) : Math.max(0, originalLikeCount - 1);
+
+    // 4. 【乐观更新】瞬间修改 UI
     this.setData({
-      [`posts[${index}].isLiked`]: isLiked,
-      [`posts[${index}].likeCount`]: likeCount
+      [`posts[${index}].isLiked`]: newIsLiked,
+      [`posts[${index}].likeCount`]: newLikeCount
     });
 
-    // 触发震动反馈 (让点赞更有手感)
-    wx.vibrateShort({ type: 'light' });
-
     try {
-      // 2. 静默调用云函数
+      this.data.likeLoading = true;
+
+      // 5. 后端静默同步
       const res = await wx.cloud.callFunction({
         name: 'toggleLike',
-        data: { postId }
+        data: { postId: id }
       });
 
-      if (!res.result || !res.result.success) {
-        throw new Error('Server Error');
+      // 校验后端返回
+      if (!res || !res.result || res.result.success !== true) {
+        throw new Error('Server side process failed');
       }
+
     } catch (err) {
-      // 3. 错误回滚：如果后端失败，把状态改回去
-      console.error("Like failed, rolling back...", err);
+      console.error("Like synchronization failed:", err);
+      
+      // 6. 【异常回滚】恢复 UI 状态
       this.setData({
-        [`posts[${index}].isLiked`]: item.isLiked,
-        [`posts[${index}].likeCount`]: item.likeCount
+        [`posts[${index}].isLiked`]: originalIsLiked,
+        [`posts[${index}].likeCount`]: originalLikeCount
       });
-      wx.showToast({ title: '点赞失败', icon: 'none' });
+
+      wx.showToast({
+        title: '网络连接不稳定',
+        icon: 'none'
+      });
+    } finally {
+      this.data.likeLoading = false;
     }
   },
 
   /**
-   * 图片预览优化：清洗 Image Pipeline 参数
+   * 图片预览
    */
   previewImg(e) {
     let url = e.currentTarget.dataset.url;
-    // 如果包含 CDN 处理参数（如 WebP、缩略图），预览时去掉它们以显示原图
-    if (url.includes('?')) {
+    if (url && url.includes('?')) {
       url = url.split('?')[0];
     }
     wx.previewImage({
