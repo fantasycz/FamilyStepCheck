@@ -76,6 +76,7 @@ page { background-color: #f8f8f8; }
 .gold-num {
   background: linear-gradient(to bottom, #f1c40f, #d4af37);
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
   font-size: 70rpx; /* 稍微缩小一点，更协调 */
 }
@@ -83,6 +84,7 @@ page { background-color: #f8f8f8; }
 .silver-num {
   background: linear-gradient(to bottom, #bdc3c7, #7f8c8d);
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
   font-size: 50rpx;
 }
@@ -90,6 +92,7 @@ page { background-color: #f8f8f8; }
 .bronze-num {
   background: linear-gradient(to bottom, #e67e22, #a0522d);
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
   font-size: 50rpx;
 }
