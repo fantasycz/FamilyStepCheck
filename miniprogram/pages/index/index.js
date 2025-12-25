@@ -31,17 +31,31 @@ Page({
       });
     }
 
-    // 并行处理：获取用户状态 + 获取金句
+    // onLoad 时只处理用户状态
     try {
-      await Promise.all([
-        this.checkUserRemote(),
-        this.loadDailyGold()
-      ]);
+      await this.checkUserRemote();
     } catch (err) {
-      console.error("Initialization Error:", err);
+      console.error("Initialization User Error:", err);
     } finally {
       this.setData({ loading: false });
     }
+  },
+
+  /**
+   * 页面显示时触发
+   * 每次回到首页都会执行，确保看到最新的点赞数
+   */
+  onShow() {
+    this.loadDailyGold();
+  },
+
+  /**
+   * 监听用户下拉动作
+   * 提供手动刷新的能力
+   */
+  async onPullDownRefresh() {
+    await this.loadDailyGold();
+    wx.stopPullDownRefresh(); // 停止下拉动画
   },
 
   /**
@@ -71,16 +85,16 @@ Page({
 
   /**
    * 加载 AI 金句（含专属点赞数据同步）
+   * 逻辑：强制从云端获取最新，失败才用缓存
    */
   async loadDailyGold() {
-    const cache = wx.getStorageSync('daily_gold');
     const today = new Date().toDateString();
     const openid = wx.getStorageSync('openid') || '';
   
     try {
+      // 强制向云端索取最新快照
       const res = await db.collection('system_config').doc('daily_gold').get();
       if (res.data) {
-        // 核心：从数组中判断当前用户是否已点赞
         const likedUsers = res.data.likedUsers || [];
         const dbLikeCount = res.data.likeCount || 0;
         const isLiked = openid ? likedUsers.includes(openid) : false;
@@ -91,7 +105,7 @@ Page({
           goldIsLiked: isLiked
         });
         
-        // 存入缓存
+        // 同步更新缓存
         wx.setStorageSync('daily_gold', { 
           content: res.data.content, 
           date: today,
@@ -99,7 +113,8 @@ Page({
         });
       }
     } catch (e) {
-      console.warn("Fetch gold failed, using cache/fallback:", e);
+      console.warn("Fetch gold failed, using cache:", e);
+      const cache = wx.getStorageSync('daily_gold');
       if (cache && cache.date === today) {
         this.setData({ 
           dailyGold: cache.content, 
@@ -123,7 +138,7 @@ Page({
       return wx.showToast({ title: '请先登录', icon: 'none' });
     }
 
-    // 1. 乐观更新 UI：根据当前状态取反
+    // 1. 乐观更新 UI
     this.setData({
       goldIsLiked: !isLiked,
       goldLikeCount: isLiked ? Math.max(0, currentCount - 1) : currentCount + 1
@@ -134,15 +149,14 @@ Page({
       const goldRef = db.collection('system_config').doc('daily_gold');
 
       if (!isLiked) {
-        // 执行点赞：数字+1，并将 openid 加入数组
         await goldRef.update({
           data: {
             likeCount: _.inc(1),
             likedUsers: _.addToSet(openid)
           }
         });
+        wx.vibrateShort({ type: 'light' }); // 震动反馈
       } else {
-        // 取消点赞：数字-1，并将 openid 从数组移除
         await goldRef.update({
           data: {
             likeCount: _.inc(-1),
@@ -152,7 +166,7 @@ Page({
       }
     } catch (err) {
       console.error("Gold like toggle failed:", err);
-      // 发生错误时回滚 UI 状态
+      // 回滚
       this.setData({
         goldIsLiked: isLiked,
         goldLikeCount: currentCount
