@@ -1,12 +1,73 @@
+/* --- 全局背景与布局 --- */
 .container {
-  padding: 40rpx 30rpx;
+  padding: 30rpx;
   min-height: 100vh;
-  background-color: #f7f8fa; /* 增加背景色，让卡片更显眼 */
+  background-color: #f7f8fa;
 }
 
-/* --- 新版登录设置样式 --- */
+/* --- DeepSeek AI 金句 Banner --- */
+.gold-banner {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 30rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+
+.gold-header {
+  margin-bottom: 20rpx;
+  padding: 0 10rpx;
+}
+
+.gold-title {
+  font-size: 24rpx;
+  color: #999;
+  font-weight: bold;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+}
+
+/* 金句内容卡片 */
+.gold-content {
+  background: #f9f9f9;
+  padding: 45rpx 35rpx;
+  border-radius: 16rpx;
+  display: flex;
+  position: relative;
+}
+
+.gold-text {
+  flex: 1;
+  font-size: 32rpx;
+  color: #333;
+  line-height: 1.7;
+  font-weight: 500;
+  text-align: justify;
+}
+
+/* 对称引号 */
+.quote-mark {
+  font-size: 50rpx;
+  color: #ddd;
+  font-family: serif;
+  height: 40rpx;
+  line-height: 40rpx;
+}
+
+.quote-mark.start {
+  margin-right: 12rpx;
+  margin-top: -10rpx;
+}
+
+.quote-mark.end {
+  margin-left: 12rpx;
+  align-self: flex-end;
+  margin-bottom: -10rpx;
+}
+
+/* --- 登录设置样式 --- */
 .login-wrapper {
-  margin-top: 100rpx;
+  margin-top: 60rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -36,7 +97,6 @@
   margin-bottom: 50rpx;
 }
 
-/* 头像点击区域 */
 .avatar-wrapper {
   padding: 0 !important;
   width: 180rpx !important;
@@ -61,7 +121,6 @@
   font-weight: 500;
 }
 
-/* 昵称输入行 */
 .nickname-item {
   width: 100%;
   display: flex;
@@ -73,7 +132,6 @@
 
 .nickname-item .label {
   width: 120rpx;
-  margin-bottom: 0; /* 覆盖全局 label 的 margin */
   color: #333;
   font-weight: bold;
 }
@@ -84,7 +142,7 @@
   font-size: 30rpx;
 }
 
-/* --- 原有打卡表单样式 --- */
+/* --- 打卡表单样式 --- */
 .card {
   background: #ffffff;
   border-radius: 20rpx;
@@ -157,4 +215,5 @@
   justify-content: center;
   font-size: 32rpx;
   background-color: #07c160 !important;
+  color: #ffffff;
 }

@@ -1,4 +1,15 @@
 <view class="container">
+  
+  <view class="gold-banner">
+    <view class="gold-header">
+      <text class="gold-title">DeepSeek 每日金句</text>
+    </view>
+
+    <view class="gold-content">
+      <text class="gold-text">{{dailyGold || '每一步，都是在重新定义自己。'}}</text>
+    </view>
+  </view>
+
   <view class="login-wrapper" wx:if="{{!hasUserInfo}}">
     <view class="welcome-text">欢迎来到步数打卡</view>
     <view class="login-card">

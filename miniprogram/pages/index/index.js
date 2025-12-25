@@ -3,7 +3,7 @@ const db = wx.cloud.database();
 
 Page({
   data: {
-    // 关键修复：初始值设为空对象 {} 而非 null
+    // 基础状态
     userInfo: {}, 
     steps: '',
     mood: '',
@@ -11,27 +11,44 @@ Page({
     loading: true, 
     tempAvatar: '',
     inputNickname: '',
-    hasUserInfo: false // 增加一个布尔值用于 WXML 的判断，更安全
+    hasUserInfo: false,
+
+    // AI 金句与点赞状态
+    dailyGold: '正在获取今日动力...',
+    likeCount: 0,
+    isLiked: false
   },
 
   async onLoad() {
     const cachedUser = wx.getStorageSync('userInfo');
     const cachedOpenid = wx.getStorageSync('openid');
 
+    // 优先展示缓存提升首屏速度
     if (cachedUser && cachedOpenid) {
       this.setData({ 
         userInfo: cachedUser, 
-        hasUserInfo: true,
-        loading: false 
+        hasUserInfo: true 
       });
-      return;
     }
 
-    this.checkUserRemote();
+    // 并行处理：获取用户状态 + 获取金句
+    // 无论结果如何，Promise.all 结束后关闭 loading
+    try {
+      await Promise.all([
+        this.checkUserRemote(),
+        this.loadDailyGold()
+      ]);
+    } catch (err) {
+      console.error("Initialization Error:", err);
+    } finally {
+      this.setData({ loading: false });
+    }
   },
 
+  /**
+   * 获取远程用户信息
+   */
   async checkUserRemote() {
-    wx.showLoading({ title: '检查状态...', mask: true });
     try {
       const loginRes = await wx.cloud.callFunction({ name: 'login' });
       const openid = loginRes.result.openid;
@@ -39,8 +56,7 @@ Page({
 
       const userRes = await db.collection('users').where({ _openid: openid }).get();
 
-      const userData = userRes.data || [];
-      if (userData && userRes.data.length > 0) {
+      if (userRes.data && userRes.data.length > 0) {
         const remoteUser = userRes.data[0];
         const userInfo = {
           avatarUrl: remoteUser.avatarUrl || '',
@@ -51,12 +67,50 @@ Page({
       }
     } catch (err) {
       console.error("Remote user check failed:", err);
-    } finally {
-      this.setData({ loading: false });
-      wx.hideLoading();
     }
   },
 
+  /**
+   * 加载 AI 金句（含点赞数据）
+   */
+  async loadDailyGold() {
+    const cache = wx.getStorageSync('daily_gold');
+    const today = new Date().toDateString();
+    const openid = wx.getStorageSync('openid');
+  
+    try {
+      const res = await db.collection('system_config').doc('daily_gold').get();
+      if (res.data) {
+        // 判断当前用户是否在点赞数组中 (假设字段为 likedUsers)
+        const likedUsers = res.data.likedUsers || [];
+        const isLiked = openid ? likedUsers.includes(openid) : false;
+
+        this.setData({ 
+          dailyGold: res.data.content,
+          likeCount: res.data.likeCount || 0,
+          isLiked: isLiked
+        });
+        
+        // 存入缓存
+        wx.setStorageSync('daily_gold', { 
+          content: res.data.content, 
+          date: today,
+          likeCount: res.data.likeCount || 0
+        });
+      }
+    } catch (e) {
+      console.warn("Fetch gold failed, using cache/fallback:", e);
+      if (cache && cache.date === today) {
+        this.setData({ dailyGold: cache.content, likeCount: cache.likeCount });
+      } else {
+        this.setData({ dailyGold: '每一步，都是在重新定义自己。' });
+      }
+    }
+  },
+
+  /**
+   * 图片上传与压缩逻辑
+   */
   async processAndUploadImage(tempPath, folder) {
     if (!tempPath) return '';
     if (tempPath.startsWith('cloud://')) return tempPath;
@@ -66,20 +120,14 @@ Page({
       let finalPath = tempPath;
 
       if (fileInfo.size > 1024 * 1024) {
-        const compressRes = await wx.compressImage({
-          src: tempPath,
-          quality: 75 
-        });
+        const compressRes = await wx.compressImage({ src: tempPath, quality: 75 });
         finalPath = compressRes.tempFilePath;
       }
 
       const suffix = /\.[^\.]+$/.exec(finalPath)[0];
       const cloudPath = `${folder}/${Date.now()}-${Math.floor(Math.random() * 1000)}${suffix}`;
       
-      const uploadRes = await wx.cloud.uploadFile({
-        cloudPath,
-        filePath: finalPath
-      });
+      const uploadRes = await wx.cloud.uploadFile({ cloudPath, filePath: finalPath });
       return uploadRes.fileID;
     } catch (e) {
       console.error("Image process error:", e);
@@ -87,10 +135,61 @@ Page({
     }
   },
 
+  /**
+   * 提交打卡数据
+   */
+  async submitData() {
+    const { steps, mood, tempImgPath, userInfo, hasUserInfo, loading } = this.data;
+    
+    if (loading) return;
+    if (!hasUserInfo) return wx.showToast({ title: '请先登录', icon: 'none' });
+    
+    const stepNum = parseInt(steps);
+    if (!steps || isNaN(stepNum) || stepNum <= 0) {
+      return wx.showToast({ title: '步数输入有误', icon: 'none' });
+    }
+
+    this.setData({ loading: true });
+    wx.showLoading({ title: '提交中...', mask: true });
+
+    try {
+      const finalFileID = await this.processAndUploadImage(tempImgPath, 'checkin_pics');
+
+      await wx.cloud.callFunction({
+        name: 'addPost',
+        data: {
+          steps: stepNum,
+          mood: (mood || '').trim(),
+          imgFileID: finalFileID,
+          userInfo: userInfo 
+        }
+      });
+
+      wx.showToast({ title: '打卡成功', icon: 'success' });
+      
+      const app = getApp();
+      if (app?.globalData) {
+        app.globalData.needRefreshRank = true;
+        app.globalData.needRefreshWall = true;
+      }
+      
+      this.setData({ steps: '', mood: '', tempImgPath: '' });
+      setTimeout(() => { wx.switchTab({ url: '/pages/wall/wall' }); }, 1500);
+    } catch (err) {
+      console.error("Submission failed:", err);
+      wx.showToast({ title: '提交失败', icon: 'none' });
+    } finally {
+      this.setData({ loading: false });
+      wx.hideLoading();
+    }
+  },
+
+  /**
+   * 登录逻辑
+   */
   async confirmLogin() {
     const { tempAvatar, inputNickname, loading } = this.data;
-    if (loading) return;
-    if (!tempAvatar || !inputNickname) {
+    if (loading || !tempAvatar || !inputNickname) {
       return wx.showToast({ title: '请完善头像和昵称', icon: 'none' });
     }
 
@@ -101,10 +200,7 @@ Page({
       const avatarFileID = await this.processAndUploadImage(tempAvatar, 'avatars');
       const userInfo = { avatarUrl: avatarFileID, nickName: inputNickname };
 
-      await wx.cloud.callFunction({
-        name: 'syncUserInfo',
-        data: userInfo
-      });
+      await wx.cloud.callFunction({ name: 'syncUserInfo', data: userInfo });
 
       this.setData({ userInfo, hasUserInfo: true });
       wx.setStorageSync('userInfo', userInfo);
@@ -118,65 +214,13 @@ Page({
     }
   },
 
-  async submitData() {
-    const { steps, mood, tempImgPath, userInfo, hasUserInfo, loading } = this.data;
-    
-    if (loading) return;
-    if (!hasUserInfo) return wx.showToast({ title: '请先登录', icon: 'none' });
-    
-    const cleanMood = (mood || '').trim(); 
-    const stepNum = parseInt(steps);
-
-    if (!steps) return wx.showToast({ title: '请填写步数', icon: 'none' });
-    if (isNaN(stepNum) || stepNum <= 0) return wx.showToast({ title: '步数输入有误', icon: 'none' });
-
-    this.setData({ loading: true });
-    wx.showLoading({ title: '提交中...', mask: true });
-
-    try {
-      const finalFileID = await this.processAndUploadImage(tempImgPath, 'checkin_pics');
-
-      await wx.cloud.callFunction({
-        name: 'addPost',
-        data: {
-          steps: stepNum,
-          mood: cleanMood,
-          imgFileID: finalFileID,
-          userInfo: userInfo // 此时 userInfo 是个对象，安全
-        }
-      });
-
-      wx.showToast({ title: '打卡成功', icon: 'success' });
-      
-      const app = getApp();
-      if (app && app.globalData) {
-        app.globalData.needRefreshRank = true;
-        app.globalData.needRefreshWall = true;
-      }
-      
-      this.setData({ steps: '', mood: '', tempImgPath: '' });
-      
-      setTimeout(() => {
-        wx.switchTab({ url: '/pages/wall/wall' });
-      }, 1500);
-
-    } catch (err) {
-      console.error("Submission failed:", err);
-      wx.showToast({ title: '提交失败', icon: 'none' });
-    } finally {
-      this.setData({ loading: false });
-      wx.hideLoading();
-    }
-  },
-
+  // UI 事件处理
   chooseImage() {
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
-        this.setData({ tempImgPath: res.tempFiles[0].tempFilePath });
-      }
+      success: (res) => { this.setData({ tempImgPath: res.tempFiles[0].tempFilePath }); }
     });
   },
 
