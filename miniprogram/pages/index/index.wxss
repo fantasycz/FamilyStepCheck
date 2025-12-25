@@ -14,8 +14,12 @@
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
 }
 
+/* 顶部标题与点赞按钮对齐 */
 .gold-header {
-  margin-bottom: 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
   padding: 0 10rpx;
 }
 
@@ -27,7 +31,38 @@
   text-transform: uppercase;
 }
 
-/* 金句内容卡片 */
+/* 点赞按钮移至顶部并优化样式 */
+.gold-like-btn {
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+  padding: 8rpx 24rpx;
+  border-radius: 40rpx;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02);
+}
+
+.gold-like-btn.active {
+  background: #fff1f0;
+  border: 1rpx solid #ffccc7;
+}
+
+.gold-like-btn .icon {
+  font-size: 26rpx;
+}
+
+.gold-like-btn .count {
+  font-size: 24rpx;
+  color: #666;
+  margin-left: 8rpx;
+  font-weight: 600;
+}
+
+.gold-like-btn.active .count {
+  color: #cf1322;
+}
+
+/* 金句内容卡片：恢复均匀内边距 */
 .gold-content {
   background: #f9f9f9;
   padding: 45rpx 35rpx;

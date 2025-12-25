@@ -3,6 +3,11 @@
   <view class="gold-banner">
     <view class="gold-header">
       <text class="gold-title">DeepSeek 每日金句</text>
+
+      <view class="gold-like-btn {{goldIsLiked ? 'active' : ''}}" bindtap="handleLikeGold">
+        <text class="icon">{{goldIsLiked ? '❤️' : '🤍'}}</text>
+        <text class="count">{{goldLikeCount || 0}}</text>
+      </view>
     </view>
 
     <view class="gold-content">

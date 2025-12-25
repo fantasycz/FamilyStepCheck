@@ -13,10 +13,10 @@ Page({
     inputNickname: '',
     hasUserInfo: false,
 
-    // AI 金句与点赞状态
+    // AI 金句与专属点赞状态
     dailyGold: '正在获取今日动力...',
-    likeCount: 0,
-    isLiked: false
+    goldLikeCount: 0,
+    goldIsLiked: false
   },
 
   async onLoad() {
@@ -32,7 +32,6 @@ Page({
     }
 
     // 并行处理：获取用户状态 + 获取金句
-    // 无论结果如何，Promise.all 结束后关闭 loading
     try {
       await Promise.all([
         this.checkUserRemote(),
@@ -71,40 +70,94 @@ Page({
   },
 
   /**
-   * 加载 AI 金句（含点赞数据）
+   * 加载 AI 金句（含专属点赞数据同步）
    */
   async loadDailyGold() {
     const cache = wx.getStorageSync('daily_gold');
     const today = new Date().toDateString();
-    const openid = wx.getStorageSync('openid');
+    const openid = wx.getStorageSync('openid') || '';
   
     try {
       const res = await db.collection('system_config').doc('daily_gold').get();
       if (res.data) {
-        // 判断当前用户是否在点赞数组中 (假设字段为 likedUsers)
+        // 核心：从数组中判断当前用户是否已点赞
         const likedUsers = res.data.likedUsers || [];
+        const dbLikeCount = res.data.likeCount || 0;
         const isLiked = openid ? likedUsers.includes(openid) : false;
 
         this.setData({ 
           dailyGold: res.data.content,
-          likeCount: res.data.likeCount || 0,
-          isLiked: isLiked
+          goldLikeCount: dbLikeCount,
+          goldIsLiked: isLiked
         });
         
         // 存入缓存
         wx.setStorageSync('daily_gold', { 
           content: res.data.content, 
           date: today,
-          likeCount: res.data.likeCount || 0
+          goldLikeCount: dbLikeCount
         });
       }
     } catch (e) {
       console.warn("Fetch gold failed, using cache/fallback:", e);
       if (cache && cache.date === today) {
-        this.setData({ dailyGold: cache.content, likeCount: cache.likeCount });
+        this.setData({ 
+          dailyGold: cache.content, 
+          goldLikeCount: cache.goldLikeCount 
+        });
       } else {
         this.setData({ dailyGold: '每一步，都是在重新定义自己。' });
       }
+    }
+  },
+
+  /**
+   * 处理金句点赞 (支持严格身份校验与取消)
+   */
+  async handleLikeGold() {
+    const isLiked = this.data.goldIsLiked;
+    const currentCount = this.data.goldLikeCount;
+    const openid = wx.getStorageSync('openid');
+
+    if (!openid) {
+      return wx.showToast({ title: '请先登录', icon: 'none' });
+    }
+
+    // 1. 乐观更新 UI：根据当前状态取反
+    this.setData({
+      goldIsLiked: !isLiked,
+      goldLikeCount: isLiked ? Math.max(0, currentCount - 1) : currentCount + 1
+    });
+
+    try {
+      const _ = db.command;
+      const goldRef = db.collection('system_config').doc('daily_gold');
+
+      if (!isLiked) {
+        // 执行点赞：数字+1，并将 openid 加入数组
+        await goldRef.update({
+          data: {
+            likeCount: _.inc(1),
+            likedUsers: _.addToSet(openid)
+          }
+        });
+      } else {
+        // 取消点赞：数字-1，并将 openid 从数组移除
+        await goldRef.update({
+          data: {
+            likeCount: _.inc(-1),
+            likedUsers: _.pull(openid)
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Gold like toggle failed:", err);
+      // 发生错误时回滚 UI 状态
+      this.setData({
+        goldIsLiked: isLiked,
+        goldLikeCount: currentCount
+      });
+      wx.showToast({ title: '操作失败', icon: 'none' });
     }
   },
 
